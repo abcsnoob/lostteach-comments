@@ -1,110 +1,131 @@
-import firebaseConfig from "./firebase-config.js";
+import { auth, db, firebase } from "./firebase-config.js";
 
-firebase.initializeApp(firebaseConfig);
-const db = firebase.firestore();
-
+const loginGoogleBtn = document.getElementById("login-google");
+const loginAnonBtn = document.getElementById("login-anon");
+const logoutBtn = document.getElementById("logout");
+const userInfo = document.getElementById("user-info");
 const commentForm = document.getElementById("comment-form");
+const commentList = document.getElementById("comment-list");
 const usernameInput = document.getElementById("username");
 const commentInput = document.getElementById("comment");
-const commentList = document.getElementById("comment-list");
+const parentIdInput = document.getElementById("parentId");
 
-let replyingTo = null; // id comment đang reply
+let currentUser = null;
 
-commentForm.addEventListener("submit", e => {
-  e.preventDefault();
+loginGoogleBtn.onclick = () => {
+  const provider = new firebase.auth.GoogleAuthProvider();
+  auth.signInWithPopup(provider).catch(e => alert("Lỗi đăng nhập Google: " + e.message));
+};
 
-  const username = usernameInput.value.trim() || "Ẩn danh";
-  const commentText = commentInput.value.trim();
-  if (!commentText) {
-    alert("Nhập nội dung đi bạn ơi!");
-    return;
+loginAnonBtn.onclick = () => {
+  auth.signInAnonymously().catch(e => alert("Lỗi đăng nhập ẩn danh: " + e.message));
+};
+
+logoutBtn.onclick = () => {
+  auth.signOut();
+};
+
+auth.onAuthStateChanged(user => {
+  currentUser = user;
+  if (user) {
+    const name = user.isAnonymous ? "Ẩn danh" : user.displayName || user.email;
+    userInfo.textContent = `Đã đăng nhập: ${name}`;
+    commentForm.style.display = "block";
+  } else {
+    userInfo.textContent = "Chưa đăng nhập";
+    commentForm.style.display = "none";
   }
-
-  const newComment = {
-    username,
-    comment: commentText,
-    timestamp: firebase.firestore.FieldValue.serverTimestamp(),
-    parentId: replyingTo
-  };
-
-  db.collection("bad-comments").add(newComment)
-    .then(() => {
-      commentInput.value = "";
-      replyingTo = null;
-      commentInput.placeholder = "Nhập comment mặn như nước biển...";
-      loadComments();
-    });
 });
 
-function createCommentElement(doc) {
-  const data = doc.data();
+// Thêm comment
+commentForm.onsubmit = async (e) => {
+  e.preventDefault();
+  if (!currentUser) return alert("Bạn phải đăng nhập để bình luận.");
 
-  const div = document.createElement("div");
-  div.classList.add("border", "border-pink-600", "rounded", "p-3");
-  div.style.marginLeft = data.parentId ? "30px" : "0";
+  const username = usernameInput.value.trim() || (currentUser.isAnonymous ? "Ẩn danh" : currentUser.displayName || "Người dùng");
+  const text = commentInput.value.trim();
+  const parentId = parentIdInput.value || null;
 
-  const header = document.createElement("div");
-  header.classList.add("flex", "justify-between", "items-center", "mb-1");
+  if (!text) return alert("Comment không được để trống.");
 
-  const userSpan = document.createElement("b");
-  userSpan.textContent = data.username;
+  await db.collection("comments").add({
+    username,
+    text,
+    parentId,
+    uid: currentUser.uid,
+    timestamp: firebase.firestore.FieldValue.serverTimestamp(),
+  });
 
-  const timeSpan = document.createElement("small");
-  if (data.timestamp) {
-    timeSpan.textContent = new Date(data.timestamp.seconds * 1000).toLocaleString();
-  } else {
-    timeSpan.textContent = "vừa gửi";
+  commentForm.reset();
+  parentIdInput.value = "";
+};
+
+// Load và hiển thị comment
+function renderComments(comments) {
+  commentList.innerHTML = "";
+
+  // Tạo cây comment (nested) từ flat array
+  const map = {};
+  comments.forEach(c => {
+    c.children = [];
+    map[c.id] = c;
+  });
+
+  const roots = [];
+  comments.forEach(c => {
+    if (c.parentId) {
+      if (map[c.parentId]) {
+        map[c.parentId].children.push(c);
+      }
+    } else {
+      roots.push(c);
+    }
+  });
+
+  function createCommentElement(c, level = 0) {
+    const div = document.createElement("div");
+    div.className = "p-3 border border-gray-700 rounded bg-gray-800";
+    div.style.marginLeft = (level * 20) + "px";
+
+    div.innerHTML = `
+      <div class="flex justify-between items-center mb-1">
+        <strong>${escapeHTML(c.username)}</strong>
+        <small class="text-gray-400 text-xs">${c.timestamp ? new Date(c.timestamp.seconds * 1000).toLocaleString() : "..."}</small>
+      </div>
+      <p class="mb-1">${escapeHTML(c.text)}</p>
+      <button class="reply-btn text-pink-400 text-sm hover:underline">Trả lời</button>
+    `;
+
+    const replyBtn = div.querySelector(".reply-btn");
+    replyBtn.onclick = () => {
+      parentIdInput.value = c.id;
+      usernameInput.focus();
+      window.scrollTo({ top: 0, behavior: "smooth" });
+    };
+
+    // render con
+    c.children.forEach(child => {
+      div.appendChild(createCommentElement(child, level + 1));
+    });
+
+    return div;
   }
 
-  const replyBtn = document.createElement("button");
-  replyBtn.textContent = "Reply";
-  replyBtn.classList.add("text-sm", "text-pink-400", "hover:underline");
-  replyBtn.onclick = () => {
-    replyingTo = doc.id;
-    commentInput.focus();
-    commentInput.placeholder = `Reply bình luận của ${data.username}...`;
-  };
-
-  header.appendChild(userSpan);
-  header.appendChild(timeSpan);
-  header.appendChild(replyBtn);
-
-  const contentP = document.createElement("p");
-  contentP.textContent = data.comment;
-  contentP.classList.add("whitespace-pre-wrap");
-
-  div.appendChild(header);
-  div.appendChild(contentP);
-
-  return div;
+  roots.forEach(root => {
+    commentList.appendChild(createCommentElement(root));
+  });
 }
 
-function loadComments() {
-  commentList.innerHTML = "";
-  db.collection("bad-comments")
-    .orderBy("timestamp", "asc")
-    .get()
-    .then(snapshot => {
-      const allComments = {};
-      snapshot.forEach(doc => {
-        allComments[doc.id] = {...doc.data(), id: doc.id};
-      });
-
-      function appendComments(parentId = null, container) {
-        for (const id in allComments) {
-          if ((allComments[id].parentId || null) === parentId) {
-            const elem = createCommentElement({
-              id,
-              data: () => allComments[id]
-            });
-            container.appendChild(elem);
-            appendComments(id, container);
-          }
-        }
-      }
-
-      appendComments(null, commentList);
-    });
+function escapeHTML(text) {
+  const div = document.createElement("div");
+  div.textContent = text;
+  return div.innerHTML;
 }
 
-loadComments();
+db.collection("comments")
+  .orderBy("timestamp", "desc")
+  .onSnapshot(snapshot => {
+    const comments = [];
+    snapshot.forEach(doc => comments.push({ id: doc.id, ...doc.data() }));
+    renderComments(comments);
+  });
