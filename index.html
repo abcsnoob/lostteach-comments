@@ -2,38 +2,29 @@
 <html lang="vi">
 <head>
   <meta charset="UTF-8" />
-  <title>MấtDạy.org - Tổng hợp Comments mất dạy từ Youtube</title>
-  <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-firestore.js"></script>
+  <title>MấtDạy.org - Tổng hợp Comments mất dạy</title>
   <script src="https://cdn.tailwindcss.com"></script>
-  <script type="module" defer src="firebase-config.js"></script>
-  <script type="module" defer src="index.js"></script>
+  <script type="module" defer src="./script.js"></script>
 </head>
 <body class="bg-gray-900 text-white p-6">
   <div class="max-w-2xl mx-auto">
+
     <h1 class="text-4xl font-bold mb-4 text-center">💀 MấtDạy.org</h1>
-    <form id="comment-form" class="mb-6">
-      <input
-        id="username"
-        type="text"
-        placeholder="Tên bạn (hoặc ẩn danh)"
-        class="p-2 rounded w-full text-black mb-2"
-        required
-      />
-      <textarea
-        id="comment"
-        placeholder="Nhập comment mặn như nước biển..."
-        class="p-2 rounded w-full text-black"
-        rows="3"
-        required
-      ></textarea>
-      <button
-        type="submit"
-        class="mt-2 bg-pink-600 hover:bg-pink-700 p-2 rounded w-full"
-      >
-        💬 Thêm comment
-      </button>
+
+    <div class="text-center mb-6">
+      <button id="login-google" class="bg-blue-600 hover:bg-blue-700 p-2 rounded text-white mx-2">Đăng nhập Google</button>
+      <button id="login-anon" class="bg-gray-600 hover:bg-gray-700 p-2 rounded text-white mx-2">Đăng nhập Ẩn danh</button>
+      <button id="logout" class="bg-red-600 hover:bg-red-700 p-2 rounded text-white mx-2">Đăng xuất</button>
+      <p id="user-info" class="mt-2 text-sm"></p>
+    </div>
+
+    <form id="comment-form" class="mb-6" style="display:none;">
+      <input id="username" type="text" placeholder="Tên bạn (hoặc ẩn danh)" class="p-2 rounded w-full text-black mb-2" required />
+      <textarea id="comment" placeholder="Nhập comment mặn như nước biển..." class="p-2 rounded w-full text-black" rows="3" required></textarea>
+      <input type="hidden" id="parentId" value="" />
+      <button type="submit" class="mt-2 bg-pink-600 hover:bg-pink-700 p-2 rounded w-full">💬 Thêm comment</button>
     </form>
+
     <div id="comment-list" class="space-y-4"></div>
   </div>
 </body>
