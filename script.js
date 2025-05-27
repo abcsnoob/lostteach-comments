@@ -1,4 +1,3 @@
-import { auth, db, firebase } from "./firebase-config.js";
 
 const loginGoogleBtn = document.getElementById("login-google");
 const loginAnonBtn = document.getElementById("login-anon");
