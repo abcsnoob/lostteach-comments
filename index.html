@@ -2,35 +2,171 @@
 <html lang="vi">
 <head>
   <meta charset="UTF-8" />
-  <title>MấtDạy.org - Tổng hợp Comments mất dạy</title>
+  <title>Comment System</title>
   <script src="https://cdn.tailwindcss.com"></script>
-  <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
-<script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-auth.js"></script>
-<script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-firestore.js"></script>
-<script src="firebase-config.js"></script>
-<script src="script.js"></script>
-
 </head>
-<body class="bg-gray-900 text-white p-6">
-  <div class="max-w-2xl mx-auto">
-
-    <h1 class="text-4xl font-bold mb-4 text-center">💀 MấtDạy.org</h1>
-
-    <div class="text-center mb-6">
-      <button id="login-google" class="bg-blue-600 hover:bg-blue-700 p-2 rounded text-white mx-2">Đăng nhập Google</button>
-      <button id="login-anon" class="bg-gray-600 hover:bg-gray-700 p-2 rounded text-white mx-2">Đăng nhập Ẩn danh</button>
-      <button id="logout" class="bg-red-600 hover:bg-red-700 p-2 rounded text-white mx-2">Đăng xuất</button>
-      <p id="user-info" class="mt-2 text-sm"></p>
+<body class="bg-gray-900 text-white font-sans p-4">
+  <div class="max-w-2xl mx-auto space-y-4">
+    <div class="flex justify-between items-center">
+      <h1 class="text-2xl font-bold">LostTeach Comments</h1>
+      <div id="user-info">Chưa đăng nhập</div>
+    </div>
+    <div class="flex space-x-2">
+      <button id="login-google" class="bg-blue-600 px-3 py-1 rounded hover:bg-blue-700">Google</button>
+      <button id="login-anon" class="bg-gray-600 px-3 py-1 rounded hover:bg-gray-700">Ẩn danh</button>
+      <button id="logout" class="bg-red-600 px-3 py-1 rounded hover:bg-red-700">Đăng xuất</button>
     </div>
 
-    <form id="comment-form" class="mb-6" style="display:none;">
-      <input id="username" type="text" placeholder="Tên bạn (hoặc ẩn danh)" class="p-2 rounded w-full text-black mb-2" required />
-      <textarea id="comment" placeholder="Nhập comment mặn như nước biển..." class="p-2 rounded w-full text-black" rows="3" required></textarea>
-      <input type="hidden" id="parentId" value="" />
-      <button type="submit" class="mt-2 bg-pink-600 hover:bg-pink-700 p-2 rounded w-full">💬 Thêm comment</button>
+    <form id="comment-form" class="space-y-2 hidden">
+      <input type="text" id="username" placeholder="Tên của bạn" class="w-full p-2 bg-gray-800 rounded" />
+      <textarea id="comment" placeholder="Nhập bình luận..." class="w-full p-2 bg-gray-800 rounded"></textarea>
+      <input type="hidden" id="parentId" />
+      <button type="submit" class="bg-green-600 px-4 py-1 rounded hover:bg-green-700">Gửi</button>
     </form>
 
-    <div id="comment-list" class="space-y-4"></div>
+    <div id="comment-list" class="space-y-3"></div>
   </div>
+
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-app.js";
+    import {
+      getAuth, GoogleAuthProvider, signInWithPopup,
+      signInAnonymously, signOut, onAuthStateChanged
+    } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-auth.js";
+    import {
+      getFirestore, collection, addDoc,
+      query, orderBy, onSnapshot, serverTimestamp
+    } from "https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore.js";
+
+    const firebaseConfig = {
+      apiKey: "AIzaSyDtcs0XkNhf7yFRTzPY-A9WYet35YjQVT8",
+      authDomain: "abc-s-noob.firebaseapp.com",
+      databaseURL: "https://abc-s-noob-default-rtdb.asia-southeast1.firebasedatabase.app",
+      projectId: "abc-s-noob",
+      storageBucket: "abc-s-noob.appspot.com",
+      messagingSenderId: "196660846002",
+      appId: "1:196660846002:web:ce129820f388cc838658ab",
+      measurementId: "G-LG5SWH89MG"
+    };
+
+    const app = initializeApp(firebaseConfig);
+    const auth = getAuth(app);
+    const db = getFirestore(app);
+
+    const loginGoogleBtn = document.getElementById("login-google");
+    const loginAnonBtn = document.getElementById("login-anon");
+    const logoutBtn = document.getElementById("logout");
+    const userInfo = document.getElementById("user-info");
+    const commentForm = document.getElementById("comment-form");
+    const commentList = document.getElementById("comment-list");
+    const usernameInput = document.getElementById("username");
+    const commentInput = document.getElementById("comment");
+    const parentIdInput = document.getElementById("parentId");
+
+    let currentUser = null;
+
+    loginGoogleBtn.onclick = () => {
+      const provider = new GoogleAuthProvider();
+      signInWithPopup(auth, provider).catch(e => alert("Lỗi đăng nhập Google: " + e.message));
+    };
+
+    loginAnonBtn.onclick = () => {
+      signInAnonymously(auth).catch(e => alert("Lỗi đăng nhập ẩn danh: " + e.message));
+    };
+
+    logoutBtn.onclick = () => {
+      signOut(auth);
+    };
+
+    onAuthStateChanged(auth, (user) => {
+      currentUser = user;
+      if (user) {
+        const name = user.isAnonymous ? "Ẩn danh" : user.displayName || user.email;
+        userInfo.textContent = `Đã đăng nhập: ${name}`;
+        commentForm.style.display = "block";
+      } else {
+        userInfo.textContent = "Chưa đăng nhập";
+        commentForm.style.display = "none";
+      }
+    });
+
+    commentForm.onsubmit = async (e) => {
+      e.preventDefault();
+      if (!currentUser) return alert("Bạn phải đăng nhập để bình luận.");
+
+      const username = usernameInput.value.trim() || (currentUser.isAnonymous ? "Ẩn danh" : currentUser.displayName || "Người dùng");
+      const text = commentInput.value.trim();
+      const parentId = parentIdInput.value || null;
+
+      if (!text) return alert("Comment không được để trống.");
+
+      await addDoc(collection(db, "comments"), {
+        username,
+        text,
+        parentId,
+        uid: currentUser.uid,
+        timestamp: serverTimestamp()
+      });
+
+      commentForm.reset();
+      parentIdInput.value = "";
+    };
+
+    function escapeHTML(text) {
+      const div = document.createElement("div");
+      div.textContent = text;
+      return div.innerHTML;
+    }
+
+    function renderComments(comments) {
+      commentList.innerHTML = "";
+      const map = {};
+      comments.forEach(c => {
+        c.children = [];
+        map[c.id] = c;
+      });
+
+      const roots = [];
+      comments.forEach(c => {
+        if (c.parentId) {
+          if (map[c.parentId]) map[c.parentId].children.push(c);
+        } else {
+          roots.push(c);
+        }
+      });
+
+      function createCommentElement(c, level = 0) {
+        const div = document.createElement("div");
+        div.className = "p-3 border border-gray-700 rounded bg-gray-800 mt-2";
+        div.style.marginLeft = (level * 20) + "px";
+        div.innerHTML = `
+          <div class="flex justify-between items-center mb-1">
+            <strong>${escapeHTML(c.username)}</strong>
+            <small class="text-gray-400 text-xs">${c.timestamp ? new Date(c.timestamp.seconds * 1000).toLocaleString() : "..."}</small>
+          </div>
+          <p class="mb-1">${escapeHTML(c.text)}</p>
+          <button class="reply-btn text-pink-400 text-sm hover:underline">Trả lời</button>
+        `;
+        div.querySelector(".reply-btn").onclick = () => {
+          parentIdInput.value = c.id;
+          usernameInput.focus();
+          window.scrollTo({ top: 0, behavior: "smooth" });
+        };
+        c.children.forEach(child => div.appendChild(createCommentElement(child, level + 1)));
+        return div;
+      }
+
+      roots.forEach(root => {
+        commentList.appendChild(createCommentElement(root));
+      });
+    }
+
+    const q = query(collection(db, "comments"), orderBy("timestamp", "desc"));
+    onSnapshot(q, (snapshot) => {
+      const comments = [];
+      snapshot.forEach(doc => comments.push({ id: doc.id, ...doc.data() }));
+      renderComments(comments);
+    });
+  </script>
 </body>
 </html>
