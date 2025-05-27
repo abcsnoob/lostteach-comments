@@ -1,7 +1,3 @@
-import firebase from "https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js";
-import "https://www.gstatic.com/firebasejs/8.10.1/firebase-auth.js";
-import "https://www.gstatic.com/firebasejs/8.10.1/firebase-firestore.js";
-
 // cấu hình firebase
 const firebaseConfig = {
   apiKey: "AIzaSyDtcs0XkNhf7yFRTzPY-A9WYet35YjQVT8",
@@ -15,11 +11,8 @@ const firebaseConfig = {
 };
 
 // khởi tạo app
-const app = firebase.initializeApp(firebaseConfig);
+firebase.initializeApp(firebaseConfig);
 
-// khởi tạo auth và firestore
+// khai báo global cho tiện xài trong script.js
 const auth = firebase.auth();
 const db = firebase.firestore();
-
-// export
-export { auth, db, firebase };
